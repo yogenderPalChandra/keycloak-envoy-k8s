@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-only-envoy-to-fastapi
+  namespace: ai-platform # Protects your application namespace
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-api # Protects your FastAPI pod
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+          podSelector:
+            matchLabels:
+              # Updated to match the exact label key visible in your output!
+              gateway.envoyproxy.io/owning-gateway-name: ai-gateway
+      ports:
+        - protocol: TCP
+          port: 8000 # Binds to your FastAPI application listening port

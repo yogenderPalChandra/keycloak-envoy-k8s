@@ -1,0 +1,63 @@
+# gateway/security-policy.yaml
+
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: ai-api-jwt
+  namespace: ai-platform
+
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ai-api
+  # Allow requests from our Vite frontend
+  cors:
+    allowOrigins:
+      - "http://localhost:5173"
+    allowMethods:
+      - POST
+      - OPTIONS
+    allowHeaders:
+      - authorization
+      - content-type
+    maxAge: "310h"
+  jwt:
+    providers:
+      - name: keycloak
+
+        issuer: http://localhost:8080/realms/ai-lab
+        audiences:
+          - ai-api
+        remoteJWKS:
+          uri: http://keycloak.identity.svc.cluster.local:8080/realms/ai-lab/protocol/openid-connect/certs
+
+  authorization:
+    defaultAction: Deny
+
+    rules:
+      - name: ai-user-access
+        action: Allow
+        cel: "request.path == '/api/chat' || request.path == '/api/health'"
+
+        principal:
+          jwt:
+            provider: keycloak
+
+            claims:
+              - name: realm_access.roles
+                valueType: StringArray
+                values:
+                  - ai-user
+      # Rule 2: Allow users with the ai-admin role
+      - name: allow-ai-admins
+        cel: "request.path == '/api/admin/overview' || request.path == '/api/health' || request.path == '/api/chat'"
+        action: Allow
+        principal:
+          jwt:
+            provider: keycloak
+            claims:
+              - name: realm_access.roles
+                valueType: StringArray
+                values:
+                  - ai-admin

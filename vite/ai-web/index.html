@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Lab</title>
+  </head>
+  <body>
+    <h1>AI Lab</h1>
+
+    <p id="status">Connecting to Keycloak...</p>
+
+    <section id="application" hidden>
+      <textarea
+        id="prompt"
+        rows="5"
+        cols="60"
+        placeholder="Ask Gemini something..."
+      ></textarea>
+      <br />
+      <button id="ask">Ask Gemini</button>
+      <button id="logout">Logout</button>
+    </section>
+
+    <pre id="result"></pre>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

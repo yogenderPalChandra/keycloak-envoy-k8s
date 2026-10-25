@@ -1,0 +1,63 @@
+# fastapi/deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-api
+  namespace: ai-platform
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: ai-api
+
+  template:
+    metadata:
+      labels:
+        app: ai-api
+
+    spec:
+      containers:
+        - name: ai-api
+
+          image: ai-fastapi:1.0.2
+
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gemini-api
+                  key: GEMINI_API_KEY
+
+            - name: GEMINI_MODEL
+              value: gemini-2.5-flash
+
+          ports:
+            - containerPort: 8000
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-api
+  namespace: ai-platform
+
+spec:
+  selector:
+    app: ai-api
+
+  ports:
+    - port: 8000
+      targetPort: 8000
