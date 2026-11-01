@@ -14,7 +14,7 @@ spec:
   # Allow requests from our Vite frontend
   cors:
     allowOrigins:
-      - "http://localhost:5173"
+      - "http://localhost:5174"
     allowMethods:
       - POST
       - OPTIONS

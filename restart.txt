@@ -1,0 +1,6 @@
+#Once laptop is switched off you need to port forwrds these:
+kubectl port-forward svc/keycloak 8080:8080 -n identity
+kubectl port-forward -n ai-platform service/ai-api 8000:8000
+
+kubectl -n envoy-gateway-system port-forward \
+  service/envoy-ai-platform-ai-gateway-2621731d 8888:80

@@ -21,7 +21,7 @@ spec:
       containers:
         - name: ai-api
 
-          image: ai-fastapi:1.0.2
+          image: ai-fastapi:1.1.0
 
           imagePullPolicy: IfNotPresent
 

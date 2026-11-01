@@ -1,0 +1,87 @@
+#Create React scafolding with vite build and dev env
+npm create vite@latest ai-web-react -- --template react
+#server runs on:, if server is closed npm run dev
+http://localhost:5174/
+
+#in ai-web-react directory. This will add keycloak in package.json
+npm install keycloak-js
+
+#Now add this in keycloak.js:
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<
+import Keycloak from "keycloak-js";
+
+const keycloak = new Keycloak({
+  url: "http://localhost:8080",
+  realm: "ai-lab",
+  clientId: "ai-web",
+});
+
+export default keycloak;
+>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#add this to main.js:
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+import keycloak from './keycloak.js'
+
+const root = createRoot(document.getElementById('root'))
+
+async function startApp() {
+  try {
+    const authenticated = await keycloak.init({
+      onLoad: 'login-required',
+      pkceMethod: 'S256',
+    })
+
+    if (authenticated) {
+      root.render(
+        <StrictMode>
+          <App />
+        </StrictMode>,
+      )
+    }
+  } catch (error) {
+    console.error('Keycloak initialization failed:', error)
+
+    root.render(
+      <div style={{ padding: '2rem' }}>
+        Login initialization failed. Check the browser console.
+      </div>,
+    )
+  }
+}
+
+startApp()
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#This will ask for keycloak authentication when one goes to react ui at http://localhost:5174/
+#it will go to localhost:8080 and from there it will ask for creds. But it will fail with error:
+#redirect uri failure, Try to add http://localhost:5174/ in the api-web web client in keycloak.
+#Go to localhost:8080, admin admin, go to ai-lab realm, go to ai-web client, and add this:
+
+Setting	Value
+Root URL	http://localhost:5174
+Home URL	http://localhost:5174
+Valid Redirect URIs	http://localhost:5174/*
+Web Origins	http://localhost:5174
+
+#Now again visit localhost:5174, and it will redirect again to localhost:8080, put yogi:yogi. And
+#You are in th echat interface
+
+add this to the security policy to settle CORS:
+<<<<<<<<<<<<<<<<<<<<<
+  cors:
+    allowOrigins:
+      - "http://localhost:5174"
+
+
+>>>>>>>>>>>>>>>>>>>>
+
