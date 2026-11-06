@@ -1,18 +1,20 @@
-
 .app {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: #111318;
 }
 
 .sidebar {
   width: 260px;
+  height: 100vh;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   padding: 22px 14px 14px;
   background: #191b22;
   border-right: 1px solid #292c35;
+  overflow-y: auto;
 }
 
 .brand {
@@ -488,4 +490,87 @@
 .logout-button:hover {
   background: #dc2626;
   color: #ffffff;
+}
+.markdown-content {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.markdown-content p {
+  margin: 0 0 14px;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 24px 0 12px;
+  line-height: 1.3;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.markdown-content li {
+  margin: 6px 0;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid #7779f8;
+  padding-left: 14px;
+  margin: 16px 0;
+  color: #b8bac5;
+}
+
+.markdown-content pre {
+  background: #171923;
+  border: 1px solid #303442;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 14px 0;
+  overflow-x: auto;
+}
+
+.markdown-content pre code {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: transparent;
+}
+
+.markdown-content :not(pre) > code {
+  background: #292d3a;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid #363a47;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.markdown-content th {
+  background: #252936;
+}
+
+.markdown-content a {
+  color: #a5a6ff;
+}
+
+.user-message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

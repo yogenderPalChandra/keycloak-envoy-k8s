@@ -21,7 +21,7 @@ spec:
       containers:
         - name: ai-api
 
-          image: ai-fastapi:1.1.0
+          image: ai-fastapi:1.3.6
 
           imagePullPolicy: IfNotPresent
 
@@ -34,6 +34,30 @@ spec:
 
             - name: GEMINI_MODEL
               value: gemini-2.5-flash
+
+            - name: POSTGRES_HOST
+              value: ai-postgres
+
+            - name: POSTGRES_PORT
+              value: "5432"
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ai-postgres-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ai-postgres-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: ai-postgres-secret
+                  key: POSTGRES_DB
 
           ports:
             - containerPort: 8000

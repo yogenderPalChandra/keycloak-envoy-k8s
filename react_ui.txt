@@ -85,3 +85,114 @@ add this to the security policy to settle CORS:
 
 >>>>>>>>>>>>>>>>>>>>
 
+#working
+##################################################################
+#Postgres integrationfor episodic memory#########################
+##################################################################
+
+k apply -f postgres_chat_memory/postgres.yaml
+
+#test:
+kubectl exec -it deployment/ai-postgres -n ai-platform -- \
+  sh -c 'psql -U "yogi" -d "episodic_memory"'
+
+SELECT current_database(), current_user, version();
+
+#You should see the database ai_workspace, user ai_app, and no application tables yet.
+
+#Network policy so only ai-api connects it:
+
+k apply -f postgres_chat_memory/network_policy.yaml
+
+###############
+
+create models.py, conversation.py and this piece of code:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+#shoudl create the tables conversation and messsages and Users
+When the FatsAPI app starts. Models.py descries the DB structure,
+Base.metadata.create_all(bind=engine) creates them whenever contect in app starts =
+
+#Configure HTTP route again: add this in envoyDeployment.yaml
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/conversations
+      backendRefs:
+        - name: ai-api
+          port: 8000
+k apply -f gateway/envoyDployment.yaml
+
+#security polic shoudl also allow this endpoint, chaneg this:
+cel: "request.path == '/api/chat' || request.path == '/api/health' || request.path == '/api/db-health' || request.path == '/api/whoami' || request.path.startsWith('/api/conversations')"
+k apply -f gateway/security-policy.yaml
+#in ai_users and ai_admin
+
+##################Test if api/converstaion is working############
+
+login at localhost:5173 as shalu
+take TOKEN=<TOEKN> from dev tools:
+
+#Cerate POST thhe entry:
+curl -i -X POST http://localhost:8888/api/conversations   -H "Authorization: Bearer $TOKEN"
+HTTP/1.1 200 OK
+date: Thu, 05 Nov 2026 15:26:37 GMT
+server: uvicorn
+content-length: 112
+content-type: application/json
+
+
+#Get it:
+curl http://localhost:8888/api/conversations \
+  -H "Authorization: Bearer $TOKEN"
+[{"id":"0287b2a4-f7fa-4c2e-81bb-52f891c4bd15","title":"New chat","created_at":"2026-11-05T15:26:38.088993+00:00","updated_at":"2026-11-05T15:26:38.089000+00:00"}]
+
+#######################
+
+Now we change to:
+React sends a conversation_id and a new message.
+FastAPI retrieves previous messages from PostgreSQL.
+FastAPI sends the history to Gemini.
+FastAPI saves the new user message and Gemini's response.
+FastAPI returns the answer to React.
+The browser will no longer be responsible for maintaining the authoritative conversation history.
+
+
+
+#chanegd in app.py the api/chat:
+
+now make this:
+
+
+curl http://localhost:8888/api/conversations   -H "Authorization: Bearer $TOKEN"
+
+[{"id":"0287b2a4-f7fa-4c2e-81bb-52f891c4bd15","title":"New chat","created_at":"2026-11-05T15:26:38.088993+00:00","updated_at":"2026-11-05T15:26:38.089000+00:00"}]
+
+curl -X POST http://localhost:8888/api/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversation_id": "0287b2a4-f7fa-4c2e-81bb-52f891c4bd15",
+    "message": "What is Kubernetes?"
+  }'
+
+
+ curl -X POST http://localhost:8888/api/chat   -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json"   -d '{
+    "conversation_id": "0287b2a4-f7fa-4c2e-81bb-52f891c4bd15",
+    "message": "give an application in 5 words"
+  }'
+{"conversation_id":"0287b2a4-f7fa-4c2e-81bb-52f891c4bd15","answer":"**Orchestrates containerized applications automatically.**"}
+
+#it works, send requets, get id, send request with that id. The backend fastapi
+Knwos the history. So check the postgres with this id and three communications:
+
+#Now, check the table message:
+
+kubectl exec -it deployment/ai-postgres -n ai-platform -- \
+  sh -c 'psql -U "yogi" -d "episodic_memory"'
+SELECT role, content, created_at
+FROM messages
+ORDER BY created_at;

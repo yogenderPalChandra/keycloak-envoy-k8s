@@ -18,6 +18,8 @@ spec:
     allowMethods:
       - POST
       - OPTIONS
+      - DELETE
+      - OPTIONS
     allowHeaders:
       - authorization
       - content-type
@@ -29,6 +31,11 @@ spec:
         issuer: http://localhost:8080/realms/ai-lab
         audiences:
           - ai-api
+        
+        claimToHeaders:
+        - claim: sub
+          header: x-authenticated-user
+
         remoteJWKS:
           uri: http://keycloak.identity.svc.cluster.local:8080/realms/ai-lab/protocol/openid-connect/certs
 
@@ -38,8 +45,7 @@ spec:
     rules:
       - name: ai-user-access
         action: Allow
-        cel: "request.path == '/api/chat' || request.path == '/api/health'"
-
+        cel: "request.path == '/api/chat' || request.path == '/api/health' || request.path == '/api/db-health' || request.path == '/api/whoami' || request.path.startsWith('/api/conversations')"
         principal:
           jwt:
             provider: keycloak
@@ -51,7 +57,7 @@ spec:
                   - ai-user
       # Rule 2: Allow users with the ai-admin role
       - name: allow-ai-admins
-        cel: "request.path == '/api/admin/overview' || request.path == '/api/health' || request.path == '/api/chat'"
+        cel: "request.path == '/api/chat' || request.path == '/api/health' || request.path == '/api/db-health' || request.path == '/api/whoami' || request.path.startsWith('/api/conversations')"
         action: Allow
         principal:
           jwt:

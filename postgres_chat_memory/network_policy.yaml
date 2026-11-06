@@ -1,0 +1,22 @@
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-only-fastapi-to-postgres
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-postgres
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ai-api
+      ports:
+        - protocol: TCP
+          port: 5432

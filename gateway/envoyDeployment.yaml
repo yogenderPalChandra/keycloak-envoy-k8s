@@ -37,7 +37,6 @@ spec:
         - path:
             type: PathPrefix
             value: /api/health
-
       backendRefs:
         - name: ai-api
           port: 8000
@@ -46,7 +45,6 @@ spec:
         - path:
             type: Exact
             value: /api/chat
-
       backendRefs:
         - name: ai-api
           port: 8000
@@ -55,6 +53,27 @@ spec:
         - path:
             type: Exact
             value: /api/admin/overview
+      backendRefs:
+        - name: ai-api
+          port: 8000
+    - matches:
+        - path:
+            type: Exact
+            value: /api/db-health
+      backendRefs:
+        - name: ai-api
+          port: 8000
+    - matches:
+        - path:
+            type: Exact
+            value: /api/whoami
+      backendRefs:
+        - name: ai-api
+          port: 8000
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/conversations
       backendRefs:
         - name: ai-api
           port: 8000

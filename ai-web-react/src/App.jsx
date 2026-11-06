@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import keycloak from "./keycloak.js";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github-dark.css";
+
 function createChat() {
   return {
     id: crypto.randomUUID(),
@@ -11,15 +16,37 @@ function createChat() {
   };
 }
 
-function App() {
-  const [chats, setChats] = useState(() => {
-    try {
-      const saved = localStorage.getItem("ai-web-chats");
-      return saved ? JSON.parse(saved) : [createChat()];
-    } catch {
-      return [createChat()];
-    }
+// code for postgres integration
+const API_BASE = "http://localhost:8888";
+
+async function apiFetch(path, options = {}) {
+  await keycloak.updateToken(30);
+
+  if (!keycloak.token) {
+    throw new Error("No authentication token available.");
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${keycloak.token}`,
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+    },
   });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`API error (${response.status}): ${details}`);
+  }
+
+  if (response.status === 204) return null;
+
+  return response.json();
+}
+
+//
+function App() {
 
   function handleLogout() {
     // Remove locally stored chats before signing out.
@@ -31,166 +58,171 @@ function App() {
     });
   }
 
-  const [activeChatId, setActiveChatId] = useState(
-    () => chats[0]?.id
-  );
-
+  const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [chatError, setChatError] = useState("");
+  console.log("raw token:", keycloak.token);
   const activeChat = chats.find(
     (chat) => chat.id === activeChatId
   );
-
   useEffect(() => {
-    localStorage.setItem("ai-web-chats", JSON.stringify(chats));
-  }, [chats]);
+    let cancelled = false;
+    async function loadChats() {
+      try {
+        const data = await apiFetch("/api/conversations");
+  
+        if (cancelled) return;
+        const verifiedData = data || [];
+        setChats(verifiedData);
+        // setChats(data || []);
+  
+        // if (data.length > 0) {
+        //   await openChat(data[0].id);
+        // }
+        if (verifiedData.length > 0) {
+          await openChat(verifiedData[0].id);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load conversations:", error);
+          setChatError(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingChats(false);
+        }
+      }
+    }
+  
+    loadChats();
+  
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  function newChat() {
-    const chat = createChat();
-    setChats((previous) => [chat, ...previous]);
-    setActiveChatId(chat.id);
-    setInput("");
+  async function openChat(chatId) {
+    try {
+      const conversation = await apiFetch(
+        `/api/conversations/${chatId}`
+      );
+  
+      setChats((previous) =>
+        previous.map((chat) =>
+          chat.id === chatId
+            ? { ...conversation }
+            : chat
+        )
+      );
+  
+      setActiveChatId(chatId);
+      setInput("");
+      setChatError("");
+    } catch (error) {
+      console.error("Failed to load conversation:", error);
+      setChatError(error.message);
+    }
   }
 
-
-  async function sendMessage(event) {
-    event.preventDefault();
-  
-    const text = input.trim();
-    if (!text) return;
-
-    if (isLoading) return;
-    setIsLoading(true);
-  
-    // Remember which chat this message belongs to.
-    const chatId = activeChatId;
-    const previousMessages =
-      chats.find((chat) => chat.id === chatId)?.messages ?? [];
-  
-    const userMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-    };
-  
-    // Immediately show the user's message.
-    setChats((previous) =>
-      previous.map((chat) => {
-        if (chat.id !== chatId) return chat;
-  
-        return {
-          ...chat,
-          title:
-            chat.messages.length === 0
-              ? text.slice(0, 32)
-              : chat.title,
-          messages: [...chat.messages, userMessage],
-        };
-      })
-    );
-  
-    setInput("");
-  
+  async function newChat() {
     try {
-      // Refresh the token if it is about to expire.
-      await keycloak.updateToken(30);
-  
-      if (!keycloak.token) {
-        throw new Error("No authentication token available.");
-      }
-  
-      // Send the prompt to our existing backend through Envoy.
-      const response = await fetch(
-        "http://localhost:8888/api/chat",
+      const conversation = await apiFetch(
+        "/api/conversations",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${keycloak.token}`,
-          },
-          body: JSON.stringify({
-            messages: [
-              ...previousMessages.map(({ role, content }) => ({
-                role,
-                content,
-              })),
-              {
-                role: "user",
-                content: text,
-              },
-            ],
-          }),
         }
       );
   
-      if (!response.ok) {
-        const details = await response.text();
-        throw new Error(
-          `API request failed (${response.status}): ${details}`
-        );
-      }
-  
-      const data = await response.json();
-  
-      const assistantMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: data.answer,
+      const chat = {
+        ...conversation,
+        messages: [],
       };
   
-      // Add the AI response to the same chat.
-      setChats((previous) =>
-        previous.map((chat) =>
-          chat.id === chatId
-            ? {
-                ...chat,
-                messages: [...chat.messages, assistantMessage],
-              }
-            : chat
-        )
-      );
+      setChats((previous) => [chat, ...previous]);
+      setActiveChatId(chat.id);
+      setInput("");
+      setChatError("");
     } catch (error) {
-      console.error("Failed to send chat message:", error);
+      console.error("Failed to create conversation:", error);
+      setChatError(error.message);
+    }
+  }
+
+
+  async function sendMessage(e) {
+    console.log("SEND HANDLER CALLED");
+    e.preventDefault();
+    const text = input.trim();
   
-      const errorMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: `Sorry, the request failed: ${error.message}`,
-      };
+    if (!text || isLoading || !activeChatId) return;
   
-      setChats((previous) =>
-        previous.map((chat) =>
-          chat.id === chatId
-            ? {
-                ...chat,
-                messages: [...chat.messages, errorMessage],
-              }
-            : chat
-        )
-      );
+    setInput("");
+    setIsLoading(true);
+    setChatError("");
+  
+    try {
+      await apiFetch("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          conversation_id: activeChatId,
+          message: text,
+        }),
+      });
+  
+      // Reload messages from PostgreSQL
+
+    // Fetch updated sidebar list and full conversation
+    const [updatedChats, conversation] = await Promise.all([
+      apiFetch("/api/conversations"),
+      apiFetch(`/api/conversations/${activeChatId}`),
+    ]);
+
+    // Preserve the full conversation, including messages
+    setChats(
+      updatedChats.map((chat) =>
+        chat.id === activeChatId ? conversation : chat
+      )
+    );
+
+    setActiveChatId(activeChatId);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setChatError(error.message);
+  
+      // The backend may have saved the user message
+      // even if Gemini failed. Reload to reflect DB state.
+      await openChat(activeChatId);
     } finally {
       setIsLoading(false);
     }
   }
   
 
-  function deleteChat(chatId) {
-    const remaining = chats.filter(
-      (chat) => chat.id !== chatId
-    );
-
-    if (remaining.length === 0) {
-      const chat = createChat();
-      setChats([chat]);
-      setActiveChatId(chat.id);
-      return;
-    }
-
-    setChats(remaining);
-
-    if (chatId === activeChatId) {
-      setActiveChatId(remaining[0].id);
+  async function deleteChat(chatId) {
+    try {
+      await apiFetch(`/api/conversations/${chatId}`, {
+        method: "DELETE",
+      });
+  
+      const remaining = chats.filter(
+        (chat) => chat.id !== chatId
+      );
+  
+      setChats(remaining);
+  
+      if (chatId === activeChatId) {
+        if (remaining.length > 0) {
+          await openChat(remaining[0].id);
+        } else {
+          setActiveChatId(null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      setChatError(error.message);
     }
   }
 
@@ -202,11 +234,12 @@ function App() {
           <span>AI Workspace</span>
         </div>
 
-        <button className="new-chat-button" onClick={newChat}>
+        <button type="button" className="new-chat-button" onClick={newChat}>
           <span>＋</span> New chat
         </button>
 
         <div className="history-label">YOUR CHATS</div>
+        {chatError && (<p className="error-message">{chatError}</p>)}
 
         <div className="chat-list">
           {chats.map((chat) => (
@@ -218,7 +251,7 @@ function App() {
             >
               <button
                 className="chat-select"
-                onClick={() => setActiveChatId(chat.id)}
+                onClick={() => openChat(chat.id)}
               >
                 <span className="chat-icon">▤</span>
                 <span className="chat-title">
@@ -268,7 +301,7 @@ function App() {
 
 
         <section className="conversation">
-          {activeChat?.messages.length === 0 ? (
+        {(activeChat?.messages?.length ?? 0) === 0 ? (
             <div className="welcome">
               <div className="welcome-icon">✦</div>
               <h1>What can I help you with?</h1>
@@ -310,7 +343,20 @@ function App() {
                     <div className="message-role">
                       {message.role === "user" ? "You" : "AI"}
                     </div>
-                    <div>{message.content}</div>
+                    <div className="markdown-content">
+                      {message.role === "assistant" ? (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeHighlight]}
+                        >
+                          {message.content || ""}
+                        </ReactMarkdown>
+                      ) : (
+                        <div className="user-message-text">
+                          {message.content}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -325,7 +371,13 @@ function App() {
 
 
         <div className="composer-area">
-          <form className="composer" onSubmit={sendMessage}>
+        <form
+            className="composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage(e);
+            }}
+          >
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}

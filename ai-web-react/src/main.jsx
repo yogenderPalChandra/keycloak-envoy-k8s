@@ -15,6 +15,7 @@ async function startApp() {
     })
 
     if (authenticated) {
+      console.log("OIDC claims:", keycloak.tokenParsed);  
       root.render(
         <StrictMode>
           <App />
